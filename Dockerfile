@@ -15,7 +15,7 @@ RUN echo "{" > /build/buildinfo && \
 FROM public.ecr.aws/docker/library/perl:5.42-slim AS final
 LABEL maintainer="Thomas Randall <thomas.james.randall@gmail.com>"
 
-# 1. System dependencies 
+# 1. System dependencies (Added libcap2-bin here)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libperl-dev \
@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     perl-modules \
     curl \
     wget \
+    libcap2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Plack Stack
@@ -58,6 +59,11 @@ RUN find /var/www/web -type d -exec chmod 755 {} + && \
 
 # 5. Internalize URLs
 RUN grep -rl 'divinumofficium.com' /var/www/web | xargs sed -i 's|http[s]*://divinumofficium.com/|/|g'
+
+# Install the tool, grant the permission to the binary, then clean up to save space
+RUN apt-get update && apt-get install -y libcap2-bin && \
+    setcap 'cap_net_bind_service=+ep' $(readlink -f $(which perl)) && \
+    apt-get purge -y libcap2-bin && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 USER www-data
 
